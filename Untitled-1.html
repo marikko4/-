@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>イキスギ爆速音声カウンター</title>
+    <title>イキスギ爆速・連呼対応音声カウンター</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -61,7 +61,6 @@
             transition: transform 0.08s ease;
         }
 
-        /* 高速検知用アニメーション */
         .counter.bump {
             transform: scale(1.18);
             color: #fbbf24;
@@ -135,9 +134,8 @@
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
 
-        // デフォルト初期値を 2345 に設定
         const DEFAULT_COUNT = 2345;
-        let count = parseInt(localStorage.getItem('ikisugiHighSensCount'));
+        let count = parseInt(localStorage.getItem('ikisugiUltraCount'));
         if (isNaN(count)) {
             count = DEFAULT_COUNT;
         }
@@ -145,9 +143,11 @@
 
         let isListening = false;
         let recognition = null;
-        let lastMatchedIndex = -1; // 重複判定を防ぐためのインデックス管理
 
-        // Web Audio API の準備（爆速ピコン音）
+        // 音声認識セッションごとに、結果インデックス(i)ごとの「カウント済み件数」を記録するマップ
+        let countedMap = {};
+
+        // Web Audio API（効果音）
         let audioCtx = null;
 
         function initAudio() {
@@ -163,7 +163,6 @@
             if (!audioCtx) return;
             const now = audioCtx.currentTime;
 
-            // 超高感度用レスポンス音
             const osc1 = audioCtx.createOscillator();
             const gain1 = audioCtx.createGain();
             osc1.type = 'sine';
@@ -202,36 +201,44 @@
             recognition = new SpeechRecognition();
             recognition.lang = 'ja-JP';
             recognition.continuous = true;
-            recognition.interimResults = true; // リアルタイム途中の超高速取得
+            recognition.interimResults = true; // リアルタイム途中の高速取得
 
-            // 認識ロジック（感度向上）
+            // 判定用の正規表現パターン（本命 + 「キスいい」「岐阜」「ディスイー」等の空耳パターン）
+            const targetPattern = /行き過ぎ|行過ぎ|いきすぎ|イキスギ|いきスギ|イキすぎ|キスいい|キスイイ|岐阜|ぎふ|ディスイー|ディス representation|キスギ|きすぎ/gi;
+
             recognition.onresult = (event) => {
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript.trim();
+                    const transcript = event.results[i][0].transcript;
                     lastWordDisplay.textContent = `認識中: "${transcript}"`;
 
-                    // 「行き過ぎ」「行過ぎ」「いきすぎ」「イキスギ」等の各種揺れに対応
-                    const isMatched = /行き過ぎ|行過ぎ|いきすぎ|イキスギ|いきスギ|イキすぎ/.test(transcript);
+                    // 現時点までのテキストの中でマッチする回数をカウント
+                    const matches = transcript.match(targetPattern);
+                    const totalMatchesInResult = matches ? matches.length : 0;
 
-                    if (isMatched) {
-                        // この結果セットでまだカウントしていない場合に即座に加算
-                        if (lastMatchedIndex !== i) {
-                            lastMatchedIndex = i;
+                    // この文節（インデックス i）で過去にカウントした回数を取得
+                    const alreadyCounted = countedMap[i] || 0;
 
-                            count++;
-                            countDisplay.textContent = count;
-                            localStorage.setItem('ikisugiHighSensCount', count);
+                    // 新しく追加で検出された「行き過ぎ」の数
+                    const newMatches = totalMatchesInResult - alreadyCounted;
 
-                            playBeepSound();
-                            triggerCounterAnimation();
-                            lastWordDisplay.textContent = `超速検知: "${transcript}" (+1)`;
-                        }
+                    if (newMatches > 0) {
+                        // 増えた分だけ加算
+                        count += newMatches;
+                        countDisplay.textContent = count;
+                        localStorage.setItem('ikisugiUltraCount', count);
+
+                        // 記録を更新
+                        countedMap[i] = totalMatchesInResult;
+
+                        playBeepSound();
+                        triggerCounterAnimation();
+                        lastWordDisplay.textContent = `検知 (${totalMatchesInResult}回目): "${transcript}" (+${newMatches})`;
                     }
                 }
             };
 
             recognition.onend = () => {
-                lastMatchedIndex = -1;
+                countedMap = {}; // 音声認識が一区切りしたらマップをリセット
                 if (isListening) {
                     try {
                         recognition.start();
@@ -265,7 +272,7 @@
 
         function startListening() {
             isListening = true;
-            lastMatchedIndex = -1;
+            countedMap = {};
             recognition.start();
             updateUI(true);
         }
@@ -281,7 +288,7 @@
                 toggleBtn.textContent = "マイク停止";
                 toggleBtn.classList.add('stop');
                 statusDot.classList.add('active');
-                statusText.textContent = "高感度マイクON (即時検知中)";
+                statusText.textContent = "超高感度マイクON (連呼・空耳検知中)";
             } else {
                 toggleBtn.textContent = "マイク開始";
                 toggleBtn.classList.remove('stop');
@@ -290,12 +297,11 @@
             }
         }
 
-        // リセット時は 2345 に戻す
         resetBtn.addEventListener('click', () => {
             if (confirm("カウントを 2345 にリセットしますか？")) {
                 count = DEFAULT_COUNT;
                 countDisplay.textContent = count;
-                localStorage.setItem('ikisugiHighSensCount', count);
+                localStorage.setItem('ikisugiUltraCount', count);
                 lastWordDisplay.textContent = "2345 にリセットしました";
             }
         });
