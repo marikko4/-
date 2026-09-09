@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>イキスギ連続音声カウンター (効果音つき)</title>
+    <title>イキスギ爆速音声カウンター</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -53,17 +53,17 @@
         }
 
         .counter {
-            font-size: 5.5rem;
+            font-size: 4.5rem;
             font-weight: bold;
             color: #f59e0b;
             margin: 0.5rem 0;
             line-height: 1;
-            transition: transform 0.1s ease;
+            transition: transform 0.08s ease;
         }
 
-        /* カウント時のアニメーション */
+        /* 高速検知用アニメーション */
         .counter.bump {
-            transform: scale(1.15);
+            transform: scale(1.18);
             color: #fbbf24;
         }
 
@@ -119,12 +119,12 @@
             <span id="statusText">停止中</span>
         </div>
 
-        <div class="counter" id="countDisplay">0</div>
+        <div class="counter" id="countDisplay">2345</div>
         <div class="last-word" id="lastWord">「マイク開始」を押して話してください</div>
 
         <button class="btn-toggle" id="toggleBtn">マイク開始</button>
         <br>
-        <button class="btn-reset" id="resetBtn">カウントをリセット</button>
+        <button class="btn-reset" id="resetBtn">カウントを 2345 にリセット</button>
     </div>
 
     <script>
@@ -135,14 +135,19 @@
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
 
-        let count = parseInt(localStorage.getItem('ikisugiFastVoiceCount')) || 0;
+        // デフォルト初期値を 2345 に設定
+        const DEFAULT_COUNT = 2345;
+        let count = parseInt(localStorage.getItem('ikisugiHighSensCount'));
+        if (isNaN(count)) {
+            count = DEFAULT_COUNT;
+        }
         countDisplay.textContent = count;
 
         let isListening = false;
         let recognition = null;
-        let processedTextLength = 0;
+        let lastMatchedIndex = -1; // 重複判定を防ぐためのインデックス管理
 
-        // Web Audio API のオーディオコンテキスト準備
+        // Web Audio API の準備（爆速ピコン音）
         let audioCtx = null;
 
         function initAudio() {
@@ -154,43 +159,39 @@
             }
         }
 
-        // 「ピコン♪」効果音の生成・再生処理
         function playBeepSound() {
             if (!audioCtx) return;
-
             const now = audioCtx.currentTime;
 
-            // 1音目: ピ（1046.5 Hz = C6）
+            // 超高感度用レスポンス音
             const osc1 = audioCtx.createOscillator();
             const gain1 = audioCtx.createGain();
             osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(1046.5, now);
+            osc1.frequency.setValueAtTime(1200, now);
             gain1.gain.setValueAtTime(0.3, now);
-            gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+            gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
             osc1.connect(gain1);
             gain1.connect(audioCtx.destination);
             osc1.start(now);
-            osc1.stop(now + 0.08);
+            osc1.stop(now + 0.06);
 
-            // 2音目: コン（2093.0 Hz = C7）
             const osc2 = audioCtx.createOscillator();
             const gain2 = audioCtx.createGain();
             osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(2093.0, now + 0.08);
-            gain2.gain.setValueAtTime(0.4, now + 0.08);
-            gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+            osc2.frequency.setValueAtTime(2400, now + 0.06);
+            gain2.gain.setValueAtTime(0.4, now + 0.06);
+            gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.20);
             osc2.connect(gain2);
             gain2.connect(audioCtx.destination);
-            osc2.start(now + 0.08);
-            osc2.stop(now + 0.25);
+            osc2.start(now + 0.06);
+            osc2.stop(now + 0.20);
         }
 
-        // 数字の演出（ポンと拡大するアニメーション）
         function triggerCounterAnimation() {
             countDisplay.classList.add('bump');
             setTimeout(() => {
                 countDisplay.classList.remove('bump');
-            }, 120);
+            }, 80);
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -201,42 +202,36 @@
             recognition = new SpeechRecognition();
             recognition.lang = 'ja-JP';
             recognition.continuous = true;
-            recognition.interimResults = true;
+            recognition.interimResults = true; // リアルタイム途中の超高速取得
 
+            // 認識ロジック（感度向上）
             recognition.onresult = (event) => {
-                let currentTranscript = '';
-
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    currentTranscript += event.results[i][0].transcript;
+                    const transcript = event.results[i][0].transcript.trim();
+                    lastWordDisplay.textContent = `認識中: "${transcript}"`;
 
-                    if (event.results[i].isFinal) {
-                        processedTextLength = 0;
+                    // 「行き過ぎ」「行過ぎ」「いきすぎ」「イキスギ」等の各種揺れに対応
+                    const isMatched = /行き過ぎ|行過ぎ|いきすぎ|イキスギ|いきスギ|イキすぎ/.test(transcript);
+
+                    if (isMatched) {
+                        // この結果セットでまだカウントしていない場合に即座に加算
+                        if (lastMatchedIndex !== i) {
+                            lastMatchedIndex = i;
+
+                            count++;
+                            countDisplay.textContent = count;
+                            localStorage.setItem('ikisugiHighSensCount', count);
+
+                            playBeepSound();
+                            triggerCounterAnimation();
+                            lastWordDisplay.textContent = `超速検知: "${transcript}" (+1)`;
+                        }
                     }
                 }
-
-                lastWordDisplay.textContent = `認識中: "${currentTranscript}"`;
-
-                const unprocessedText = currentTranscript.slice(processedTextLength);
-                const targets = ["行き過ぎ", "行過ぎ", "いきすぎ", "イキスギ"];
-                
-                targets.forEach(target => {
-                    if (unprocessedText.includes(target)) {
-                        count++;
-                        countDisplay.textContent = count;
-                        localStorage.setItem('ikisugiFastVoiceCount', count);
-                        
-                        // 効果音 & アニメーション実行
-                        playBeepSound();
-                        triggerCounterAnimation();
-
-                        processedTextLength = currentTranscript.length;
-                        lastWordDisplay.textContent = `検知: "${target}" (+1)`;
-                    }
-                });
             };
 
             recognition.onend = () => {
-                processedTextLength = 0;
+                lastMatchedIndex = -1;
                 if (isListening) {
                     try {
                         recognition.start();
@@ -259,7 +254,7 @@
         }
 
         function toggleListening() {
-            initAudio(); // 音声コンテキストの初期化（ブラウザ制限対策）
+            initAudio();
             if (!recognition) return;
             if (isListening) {
                 stopListening();
@@ -270,7 +265,7 @@
 
         function startListening() {
             isListening = true;
-            processedTextLength = 0;
+            lastMatchedIndex = -1;
             recognition.start();
             updateUI(true);
         }
@@ -286,7 +281,7 @@
                 toggleBtn.textContent = "マイク停止";
                 toggleBtn.classList.add('stop');
                 statusDot.classList.add('active');
-                statusText.textContent = "マイクON（連続検知中…）";
+                statusText.textContent = "高感度マイクON (即時検知中)";
             } else {
                 toggleBtn.textContent = "マイク開始";
                 toggleBtn.classList.remove('stop');
@@ -295,12 +290,13 @@
             }
         }
 
+        // リセット時は 2345 に戻す
         resetBtn.addEventListener('click', () => {
-            if (confirm("カウントをリセットしますか？")) {
-                count = 0;
+            if (confirm("カウントを 2345 にリセットしますか？")) {
+                count = DEFAULT_COUNT;
                 countDisplay.textContent = count;
-                localStorage.setItem('ikisugiFastVoiceCount', count);
-                lastWordDisplay.textContent = "リセットしました";
+                localStorage.setItem('ikisugiHighSensCount', count);
+                lastWordDisplay.textContent = "2345 にリセットしました";
             }
         });
 
