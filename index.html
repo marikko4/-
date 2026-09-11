@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>イキスギ10万回耐久 for TikTok LIVE (ド派手・薄型横長)</title>
+    <title>イキスギ10万回耐久 for TikTok LIVE (リモコン分離版)</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=Noto+Sans+JP:wght@900&display=swap');
 
@@ -14,31 +14,32 @@
         body {
             font-family: 'Noto Sans JP', sans-serif;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             margin: 0;
             background-color: #000; /* OBS透過用 */
             color: #fff;
-            overflow: hidden;
+            gap: 20px;
         }
 
-        /* 派手な横長カード */
+        /* -----------------------------------
+           1. OBS配信画面用バナーカード（枠１）
+        ----------------------------------- */
         .banner-card {
             position: relative;
             background: linear-gradient(135deg, rgba(15, 20, 32, 0.95), rgba(8, 10, 15, 0.95));
             border: 2px solid #00f0ff;
             border-radius: 16px;
-            padding: 0.8rem 1.2rem;
-            width: 740px;
+            padding: 0.8rem 1.5rem;
+            width: 700px;
             backdrop-filter: blur(10px);
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 1.5rem;
-            /* 枠線のパルス発光アニメーション */
             animation: border-pulse 1.5s infinite alternate;
-            overflow: visible;
         }
 
         @keyframes border-pulse {
@@ -46,7 +47,7 @@
             100% { box-shadow: 0 0 35px rgba(0, 240, 255, 0.8), inset 0 0 20px rgba(255, 0, 127, 0.5); border-color: #ff007f; }
         }
 
-        /* IDバッジ (激しいネオン) */
+        /* IDバッジ */
         .id-badge {
             position: absolute;
             top: -14px;
@@ -68,17 +69,16 @@
             100% { transform: scale(1.05); }
         }
 
-        /* 左ブロック：企画タイトル ＆ 進捗バー */
+        /* 左：企画タイトル ＆ 進捗バー */
         .left-block {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            flex: 1.2;
+            flex: 1.4;
         }
 
-        /* 流れるグラデーションテキスト */
         .challenge-title {
-            font-size: 1.15rem;
+            font-size: 1.25rem;
             font-weight: 900;
             color: #fff;
             letter-spacing: 1.5px;
@@ -102,7 +102,6 @@
             to { background-position: 300% center; }
         }
 
-        /* ド派手プログレスバー（動く斜めストライプ） */
         .progress-box {
             width: 100%;
         }
@@ -129,7 +128,6 @@
         .progress-bar-fill {
             height: 100%;
             width: 0%;
-            /* サイバーパンクな斜めストライプ */
             background: repeating-linear-gradient(
                 45deg,
                 #ff007f,
@@ -148,21 +146,19 @@
             100% { background-position: 28px 0; }
         }
 
-        /* 中央ブロック：カウンターメイン数値 */
-        .center-block {
+        /* 右：メインカウンター＆ステータス */
+        .right-block {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 0 1rem;
+            padding-left: 1.5rem;
             border-left: 2px dashed rgba(0, 240, 255, 0.3);
-            border-right: 2px dashed rgba(0, 240, 255, 0.3);
         }
 
-        /* カウンター本体（通常時も少し脈打つ） */
         .counter {
             font-family: 'Orbitron', sans-serif;
-            font-size: 4rem;
+            font-size: 4.2rem;
             font-weight: 900;
             color: #00f0ff;
             text-shadow: 0 0 15px #00f0ff, 0 0 30px #ff007f;
@@ -170,16 +166,15 @@
             transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* ★検知時の激しいアクション★ */
         .counter.bump {
-            transform: scale(1.35) rotate(-3deg); /* 大きく拡大＋少し傾く */
-            color: #fff; /* 真っ白にフラッシュ */
+            transform: scale(1.35) rotate(-3deg);
+            color: #fff;
             text-shadow: 0 0 25px #fff, 0 0 50px #00f0ff, 0 0 80px #ff007f;
         }
 
         .goal-subtext {
             font-family: 'Orbitron', sans-serif;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             color: #fff;
             margin-top: 6px;
             text-shadow: 0 0 8px #ff007f;
@@ -190,65 +185,75 @@
             font-weight: bold;
         }
 
-        /* 右ブロック：フォロー目標 ＆ 操作 */
-        .right-block {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            flex: 0.9;
-        }
 
-        .follower-box {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px #00f0ff solid;
-            border-radius: 8px;
-            padding: 6px 10px;
+        /* -----------------------------------
+           2. 配信者専用 操作リモコンパネル（枠２）
+        ----------------------------------- */
+        .control-panel {
+            background: rgba(20, 25, 38, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 0.8rem 1.2rem;
+            width: 700px;
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .panel-title {
             font-size: 0.75rem;
-            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
-        }
-
-        .goal-inputs {
+            color: #a0aec0;
+            font-weight: bold;
             display: flex;
             align-items: center;
-            gap: 3px;
-            font-family: 'Orbitron', sans-serif;
-            color: #ff007f;
+            gap: 6px;
         }
 
-        .goal-inputs input {
-            width: 45px;
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid #ff007f;
-            color: #fff;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.8rem;
-            text-align: center;
-            outline: none;
-            text-shadow: 0 0 5px #ff007f;
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #4a5568;
+            display: inline-block;
         }
 
-        /* 操作コントロール */
-        .controls {
+        .status-dot.active {
+            background-color: #00ff66;
+            box-shadow: 0 0 8px #00ff66;
+            animation: dot-blink 0.5s infinite alternate;
+        }
+
+        @keyframes dot-blink {
+            0% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+
+        .status-bar {
+            font-size: 0.75rem;
+            color: #cbd5e0;
+            margin-top: 2px;
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .btn-group {
             display: flex;
-            align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
 
         .btn-toggle {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: bold;
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 1.2rem;
             background: linear-gradient(135deg, #00f0ff, #0072ff);
             color: #000;
             border: none;
             border-radius: 20px;
             cursor: pointer;
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
-            flex: 1;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
             white-space: nowrap;
             transition: all 0.2s;
         }
@@ -259,7 +264,7 @@
 
         .btn-toggle.stop {
             background: linear-gradient(135deg, #ff0055, #ffea00);
-            box-shadow: 0 0 15px rgba(255, 0, 85, 0.6);
+            box-shadow: 0 0 10px rgba(255, 0, 85, 0.4);
         }
 
         .btn-reset {
@@ -267,61 +272,29 @@
             border: 1px solid rgba(255, 255, 255, 0.3);
             border-radius: 12px;
             color: #cbd5e0;
-            padding: 0.4rem 0.6rem;
+            padding: 0.5rem 0.8rem;
             cursor: pointer;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             white-space: nowrap;
             transition: all 0.2s;
         }
-        
+
         .btn-reset:hover {
             background: rgba(255, 255, 255, 0.2);
-        }
-
-        .status-bar {
-            font-size: 0.7rem;
-            color: #a0aec0;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #4a5568;
-            flex-shrink: 0;
-        }
-
-        /* 録音中のドットは激しく点滅 */
-        .status-dot.active {
-            background-color: #00ff66;
-            box-shadow: 0 0 10px #00ff66;
-            animation: dot-blink 0.5s infinite alternate;
-        }
-
-        @keyframes dot-blink {
-            0% { opacity: 1; box-shadow: 0 0 15px #00ff66; }
-            100% { opacity: 0.3; box-shadow: 0 0 2px #00ff66; }
         }
     </style>
 </head>
 <body>
 
+    <!-- 1. OBS配信画面用バナー（上の枠） -->
     <div class="banner-card">
-        <!-- IDバッジ -->
         <div class="id-badge">ID: dswiikou</div>
 
-        <!-- 左：企画タイトル＆プログレス -->
         <div class="left-block">
             <h1 class="challenge-title">🔥 <span>イキスギ 10万回耐久</span> 🔥</h1>
             <div class="progress-box">
                 <div class="progress-info">
-                    <span>達成度 (OVERRIDE)</span>
+                    <span>達成度</span>
                     <span id="challengePercent">7.15%</span>
                 </div>
                 <div class="progress-bar-bg">
@@ -330,31 +303,25 @@
             </div>
         </div>
 
-        <!-- 中央：メインカウンター -->
-        <div class="center-block">
+        <div class="right-block">
             <div class="counter" id="countDisplay">7152</div>
             <div class="goal-subtext">GOAL: <span>100,000</span></div>
         </div>
+    </div>
 
-        <!-- 右：フォロー目標＆コントロール -->
-        <div class="right-block">
-            <div class="follower-box">
-                <span style="color:#00f0ff; font-weight:bold;">🎯 フォロワー</span>
-                <div class="goal-inputs">
-                    <input type="number" id="currentFollowers" value="850"> / 
-                    <input type="number" id="targetFollowers" value="1000">
-                </div>
-            </div>
-
-            <div class="controls">
-                <button class="btn-toggle" id="toggleBtn">マイク開始</button>
-                <button class="btn-reset" id="resetBtn">リセット</button>
-            </div>
-
-            <div class="status-bar">
+    <!-- 2. 手元操作用リモコン（下の枠） -->
+    <div class="control-panel">
+        <div>
+            <div class="panel-title">
                 <span class="status-dot" id="statusDot"></span>
-                <span id="lastWord">マイク停止中...</span>
+                <span>SYSTEM CONTROL</span>
             </div>
+            <div class="status-bar" id="lastWord">マイク停止中...</div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-toggle" id="toggleBtn">マイク開始 (START)</button>
+            <button class="btn-reset" id="resetBtn">リセット</button>
         </div>
     </div>
 
@@ -368,42 +335,23 @@
         const challengeProgressBar = document.getElementById('challengeProgressBar');
         const challengePercent = document.getElementById('challengePercent');
 
-        const currentFollowersInput = document.getElementById('currentFollowers');
-        const targetFollowersInput = document.getElementById('targetFollowers');
-
         const DEFAULT_COUNT = 7152;
         const GOAL_COUNT = 100000;
 
-        let count = parseInt(localStorage.getItem('ikisugiFlashyCount'));
+        let count = parseInt(localStorage.getItem('ikisugiSeparateCount'));
         if (isNaN(count)) {
             count = DEFAULT_COUNT;
         }
 
-        // 進捗更新
         function updateChallengeProgress() {
             countDisplay.textContent = count;
             const percent = ((count / GOAL_COUNT) * 100).toFixed(2);
             challengePercent.textContent = percent + '%';
             challengeProgressBar.style.width = Math.min(percent, 100) + '%';
-            localStorage.setItem('ikisugiFlashyCount', count);
+            localStorage.setItem('ikisugiSeparateCount', count);
         }
 
         updateChallengeProgress();
-
-        // フォロー目標の保存
-        if(localStorage.getItem('followerCurrentFL')) {
-            currentFollowersInput.value = localStorage.getItem('followerCurrentFL');
-        }
-        if(localStorage.getItem('followerTargetFL')) {
-            targetFollowersInput.value = localStorage.getItem('followerTargetFL');
-        }
-
-        currentFollowersInput.addEventListener('input', () => {
-            localStorage.setItem('followerCurrentFL', currentFollowersInput.value);
-        });
-        targetFollowersInput.addEventListener('input', () => {
-            localStorage.setItem('followerTargetFL', targetFollowersInput.value);
-        });
 
         let isListening = false;
         let recognition = null;
@@ -419,14 +367,13 @@
             }
         }
 
-        // 派手なビープ音（少しピッチ高め）
         function playBeepSound() {
             if (!audioCtx) return;
             const now = audioCtx.currentTime;
 
             const osc1 = audioCtx.createOscillator();
             const gain1 = audioCtx.createGain();
-            osc1.type = 'square'; // 派手な音質に変更
+            osc1.type = 'square';
             osc1.frequency.setValueAtTime(1500, now);
             gain1.gain.setValueAtTime(0.2, now);
             gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
@@ -447,14 +394,11 @@
             osc2.stop(now + 0.20);
         }
 
-        // ド派手なカウンターアニメーション
         function triggerCounterAnimation() {
-            // アニメーションを再トリガーするために一度クラスを外す
             countDisplay.classList.remove('bump');
-            void countDisplay.offsetWidth; // リフロー強制
+            void countDisplay.offsetWidth;
             countDisplay.classList.add('bump');
             
-            // 少し長めにアニメーションを残す
             setTimeout(() => {
                 countDisplay.classList.remove('bump');
             }, 150); 
@@ -544,12 +488,12 @@
 
         function updateUI(listening) {
             if (listening) {
-                toggleBtn.textContent = "STOP RECORDING";
+                toggleBtn.textContent = "マイク停止 (STOP)";
                 toggleBtn.classList.add('stop');
                 statusDot.classList.add('active');
                 lastWordDisplay.textContent = "自動検知システム稼働中...";
             } else {
-                toggleBtn.textContent = "START RECORDING";
+                toggleBtn.textContent = "マイク開始 (START)";
                 toggleBtn.classList.remove('stop');
                 statusDot.classList.remove('active');
                 lastWordDisplay.textContent = "マイク停止中";
@@ -560,7 +504,7 @@
             if (confirm("カウントを 7152 にリセットしますか？")) {
                 count = DEFAULT_COUNT;
                 updateChallengeProgress();
-                lastWordDisplay.textContent = "システムリセット完了";
+                lastWordDisplay.textContent = "リセット完了";
             }
         });
 
