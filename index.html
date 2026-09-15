@@ -287,7 +287,7 @@
             <div class="progress-box">
                 <div class="progress-info">
                     <span>達成度</span>
-                    <span id="challengePercent">13.80%</span>
+                    <span id="challengePercent">17.00%</span>
                 </div>
                 <div class="progress-bar-bg">
                     <div class="progress-bar-fill" id="challengeProgressBar"></div>
@@ -296,7 +296,7 @@
         </div>
 
         <div class="right-block">
-            <div class="counter" id="countDisplay">13803</div>
+            <div class="counter" id="countDisplay">17002</div>
             <div class="goal-subtext">GOAL: <span>100,000</span></div>
         </div>
     </div>
@@ -327,8 +327,8 @@
         const challengeProgressBar = document.getElementById('challengeProgressBar');
         const challengePercent = document.getElementById('challengePercent');
 
-        // デフォルト初期値を13803に更新
-        const DEFAULT_COUNT = 13803;
+        // デフォルト初期値を 17002 に設定
+        const DEFAULT_COUNT = 17002;
         const GOAL_COUNT = 100000;
 
         let count = parseInt(localStorage.getItem('ikisugiFastCount'));
@@ -433,16 +433,12 @@
                 }
             };
 
-            /* ★修正：途切れを最小限にする即時リスタート★ */
             recognition.onend = () => {
                 countedMap = {};
                 if (isListening) {
-                    // 遅延なく即座に認識を再スタート
                     try {
                         recognition.start();
-                    } catch (e) {
-                        // 既に起動していた場合の例外は無視
-                    }
+                    } catch (e) {}
                 } else {
                     updateUI(false);
                 }
@@ -498,10 +494,10 @@
         }
 
         resetBtn.addEventListener('click', () => {
-            if (confirm("カウントを 13803 にリセットしますか？")) {
+            if (confirm("カウントを 17002 にリセットしますか？")) {
                 count = DEFAULT_COUNT;
                 updateChallengeProgress();
-                lastWordDisplay.textContent = "リセット完了 (13803)";
+                lastWordDisplay.textContent = "リセット完了 (17002)";
             }
         });
 
