@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>イキスギ10万回耐久 for TikTok LIVE (リモコン分離版)</title>
+    <title>イキスギ10万回耐久 for TikTok LIVE (爆速応答版)</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=Noto+Sans+JP:wght@900&display=swap');
 
@@ -24,9 +24,7 @@
             gap: 20px;
         }
 
-        /* -----------------------------------
-           1. OBS配信画面用バナーカード（枠１）
-        ----------------------------------- */
+        /* 配信画面用バナー（枠１） */
         .banner-card {
             position: relative;
             background: linear-gradient(135deg, rgba(15, 20, 32, 0.95), rgba(8, 10, 15, 0.95));
@@ -47,7 +45,6 @@
             100% { box-shadow: 0 0 35px rgba(0, 240, 255, 0.8), inset 0 0 20px rgba(255, 0, 127, 0.5); border-color: #ff007f; }
         }
 
-        /* IDバッジ */
         .id-badge {
             position: absolute;
             top: -14px;
@@ -69,7 +66,6 @@
             100% { transform: scale(1.05); }
         }
 
-        /* 左：企画タイトル ＆ 進捗バー */
         .left-block {
             display: flex;
             flex-direction: column;
@@ -146,7 +142,6 @@
             100% { background-position: 28px 0; }
         }
 
-        /* 右：メインカウンター＆ステータス */
         .right-block {
             display: flex;
             flex-direction: column;
@@ -185,10 +180,7 @@
             font-weight: bold;
         }
 
-
-        /* -----------------------------------
-           2. 配信者専用 操作リモコンパネル（枠２）
-        ----------------------------------- */
+        /* 配信者専用 操作リモコンパネル（枠２） */
         .control-panel {
             background: rgba(20, 25, 38, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -286,7 +278,7 @@
 </head>
 <body>
 
-    <!-- 1. OBS配信画面用バナー（上の枠） -->
+    <!-- 1. OBS配信画面用バナー -->
     <div class="banner-card">
         <div class="id-badge">ID: dswiikou</div>
 
@@ -295,7 +287,7 @@
             <div class="progress-box">
                 <div class="progress-info">
                     <span>達成度</span>
-                    <span id="challengePercent">7.15%</span>
+                    <span id="challengePercent">13.80%</span>
                 </div>
                 <div class="progress-bar-bg">
                     <div class="progress-bar-fill" id="challengeProgressBar"></div>
@@ -304,12 +296,12 @@
         </div>
 
         <div class="right-block">
-            <div class="counter" id="countDisplay">7152</div>
+            <div class="counter" id="countDisplay">13803</div>
             <div class="goal-subtext">GOAL: <span>100,000</span></div>
         </div>
     </div>
 
-    <!-- 2. 手元操作用リモコン（下の枠） -->
+    <!-- 2. 手元操作用リモコン -->
     <div class="control-panel">
         <div>
             <div class="panel-title">
@@ -335,10 +327,11 @@
         const challengeProgressBar = document.getElementById('challengeProgressBar');
         const challengePercent = document.getElementById('challengePercent');
 
-        const DEFAULT_COUNT = 7152;
+        // デフォルト初期値を13803に更新
+        const DEFAULT_COUNT = 13803;
         const GOAL_COUNT = 100000;
 
-        let count = parseInt(localStorage.getItem('ikisugiSeparateCount'));
+        let count = parseInt(localStorage.getItem('ikisugiFastCount'));
         if (isNaN(count)) {
             count = DEFAULT_COUNT;
         }
@@ -348,7 +341,7 @@
             const percent = ((count / GOAL_COUNT) * 100).toFixed(2);
             challengePercent.textContent = percent + '%';
             challengeProgressBar.style.width = Math.min(percent, 100) + '%';
-            localStorage.setItem('ikisugiSeparateCount', count);
+            localStorage.setItem('ikisugiFastCount', count);
         }
 
         updateChallengeProgress();
@@ -440,13 +433,15 @@
                 }
             };
 
+            /* ★修正：途切れを最小限にする即時リスタート★ */
             recognition.onend = () => {
                 countedMap = {};
                 if (isListening) {
+                    // 遅延なく即座に認識を再スタート
                     try {
                         recognition.start();
                     } catch (e) {
-                        console.error(e);
+                        // 既に起動していた場合の例外は無視
                     }
                 } else {
                     updateUI(false);
@@ -476,7 +471,9 @@
         function startListening() {
             isListening = true;
             countedMap = {};
-            recognition.start();
+            try {
+                recognition.start();
+            } catch(e) {}
             updateUI(true);
         }
 
@@ -501,10 +498,10 @@
         }
 
         resetBtn.addEventListener('click', () => {
-            if (confirm("カウントを 7152 にリセットしますか？")) {
+            if (confirm("カウントを 13803 にリセットしますか？")) {
                 count = DEFAULT_COUNT;
                 updateChallengeProgress();
-                lastWordDisplay.textContent = "リセット完了";
+                lastWordDisplay.textContent = "リセット完了 (13803)";
             }
         });
 
