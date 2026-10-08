@@ -287,7 +287,7 @@
             <div class="progress-box">
                 <div class="progress-info">
                     <span>達成度</span>
-                    <span id="challengePercent">17.00%</span>
+                    <span id="challengePercent">43.03%</span>
                 </div>
                 <div class="progress-bar-bg">
                     <div class="progress-bar-fill" id="challengeProgressBar"></div>
@@ -296,7 +296,7 @@
         </div>
 
         <div class="right-block">
-            <div class="counter" id="countDisplay">17002</div>
+            <div class="counter" id="countDisplay">43034</div>
             <div class="goal-subtext">GOAL: <span>100,000</span></div>
         </div>
     </div>
@@ -328,10 +328,10 @@
         const challengePercent = document.getElementById('challengePercent');
 
         // デフォルト初期値を 17002 に設定
-        const DEFAULT_COUNT = 17002;
+        const DEFAULT_COUNT = 43034;
         const GOAL_COUNT = 100000;
 
-        let count = parseInt(localStorage.getItem('ikisugiFastCount'));
+        let count = parseInt(localStorage.getItem('ikisugiFastCount_v2'));
         if (isNaN(count)) {
             count = DEFAULT_COUNT;
         }
@@ -341,7 +341,7 @@
             const percent = ((count / GOAL_COUNT) * 100).toFixed(2);
             challengePercent.textContent = percent + '%';
             challengeProgressBar.style.width = Math.min(percent, 100) + '%';
-            localStorage.setItem('ikisugiFastCount', count);
+            localStorage.setItem('ikisugiFastCount_v2', count);
         }
 
         updateChallengeProgress();
@@ -573,10 +573,10 @@
         }
 
         resetBtn.addEventListener('click', () => {
-            if (confirm("カウントを 17002 にリセットしますか？")) {
-                count = DEFAULT_COUNT;
+            if (confirm("カウントを 0 にリセットしますか？")) {
+                count = 0;
                 updateChallengeProgress();
-                lastWordDisplay.textContent = "リセット完了 (17002)";
+                lastWordDisplay.textContent = "リセット完了 (0)";
             }
         });
 
