@@ -347,8 +347,6 @@
         updateChallengeProgress();
 
         let isListening = false;
-        let recognition = null;
-        let countedMap = {};
         let audioCtx = null;
 
         function initAudio() {
@@ -397,94 +395,175 @@
             }, 150); 
         }
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-        if (!SpeechRecognition) {
-            alert("お使いのブラウザは音声認識に対応していません。Google Chrome等をご利用ください。");
-        } else {
-            recognition = new SpeechRecognition();
-            recognition.lang = 'ja-JP';
+        // ===== 設定 =====
+        const CONFIG = {
+            lang: 'ja-JP',
+            maxAlternatives: 5,          // 認識候補を5つまで見て取りこぼしを減らす
+            preferOnDevice: true,        // 端末内認識が使えるなら使う（低遅延・高精度）
+            boostPhrases: [['イキスギ', 10], ['いきすぎ', 8], ['行き過ぎ', 4]]
+        };
+
+        // ==PURE-START==
+        const toHira = s => s.replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+        function normalize(s) {
+            return toHira(s.normalize('NFKC').toLowerCase())
+                .replace(/[、。,.!?！？・…～~"'「」『』()（）]/g, ' ')
+                .replace(/\s+/g, ' ');
+        }
+        const IKI = '(?:いき|行き|逝き|生き|息|行|逝)';
+        const SUGI = '(?:[すず]っ?ぎ|過ぎ|過|杉)';
+        const STRICT_SRC = `${IKI}\\s?[っー]?\\s?${SUGI}`;
+        // 誤認識されやすい形（先頭に文字が続く「好きすぎ」等は除外）
+        const B = '(?<![ぁ-ゟ一-鿿])';
+        const LOOSE_SRC = `${B}(?:きすぎ|きすい[いー]|でぃすい[いー])|${B}(?:岐阜|ぎふ)(?![ぁ-ゟ一-鿿])`;
+        const STRICT_RE = new RegExp(STRICT_SRC, 'g');
+        const ALL_RE = new RegExp(STRICT_SRC + '|' + LOOSE_SRC, 'g');
+        function countIn(text, re) { return (normalize(text).match(re) || []).length; }
+        // 1つの認識結果について、全候補のうち最大のヒット数を返す（足し算はしない＝二重カウント防止）
+        function bestCount(result) {
+            let best = 0;
+            for (let a = 0; a < result.length; a++) {
+                const n = countIn(result[a].transcript, a === 0 ? ALL_RE : STRICT_RE);
+                if (n > best) best = n;
+            }
+            return best;
+        }
+        // ==PURE-END==
+
+        let recognition = null;
+        let ready = null;
+        let running = false;
+        let restartTimer = null;
+        let errorStreak = 0;
+        let engineLabel = 'クラウド認識';
+
+        async function setupRecognition() {
+            if (!SR) {
+                alert("お使いのブラウザは音声認識に対応していません。Google Chrome等をご利用ください。");
+                return;
+            }
+            recognition = new SR();
+            recognition.lang = CONFIG.lang;
             recognition.continuous = true;
             recognition.interimResults = true;
+            recognition.maxAlternatives = CONFIG.maxAlternatives;
 
-            const targetPattern = /行き過ぎ|行過ぎ|いきすぎ|イキスギ|いきスギ|イキすぎ|キスいい|キスイイ|岐阜|ぎふ|ディスイー|ディス representation|キスギ|きすぎ/gi;
+            // 端末内認識 + 「イキスギ」フレーズ強調（対応ブラウザのみ）
+            try {
+                if (CONFIG.preferOnDevice && 'processLocally' in recognition && typeof SR.available === 'function') {
+                    const opt = { langs: [CONFIG.lang], processLocally: true };
+                    const status = await SR.available(opt);
+                    if (status === 'available') {
+                        recognition.processLocally = true;
+                        engineLabel = '端末内認識';
+                        if (window.SpeechRecognitionPhrase && 'phrases' in recognition) {
+                            recognition.phrases = CONFIG.boostPhrases.map(([p, b]) => new SpeechRecognitionPhrase(p, b));
+                            engineLabel += '+強調';
+                        }
+                    } else if ((status === 'downloadable' || status === 'downloading') && typeof SR.install === 'function') {
+                        SR.install(opt).catch(() => {}); // 次回起動から端末内認識に切替
+                    }
+                }
+            } catch (e) { console.warn('端末内認識の設定に失敗。クラウド認識を使用:', e); }
+
+            let countedMap = {};
+
+            recognition.onstart = () => { running = true; };
 
             recognition.onresult = (event) => {
+                errorStreak = 0;
+                let added = 0, shown = '';
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-
-                    const matches = transcript.match(targetPattern);
-                    const totalMatchesInResult = matches ? matches.length : 0;
-                    const alreadyCounted = countedMap[i] || 0;
-                    const newMatches = totalMatchesInResult - alreadyCounted;
-
-                    if (newMatches > 0) {
-                        count += newMatches;
-                        updateChallengeProgress();
-
-                        countedMap[i] = totalMatchesInResult;
-
-                        playBeepSound();
-                        triggerCounterAnimation();
-                        lastWordDisplay.innerHTML = `<span style="color:#ffea00;">⚡検知: "${transcript}"</span>`;
-                    } else {
-                        lastWordDisplay.textContent = `認識中: "${transcript}"`;
-                    }
+                    const n = bestCount(event.results[i]);
+                    const prev = countedMap[i] || 0;
+                    shown = event.results[i][0].transcript;
+                    if (n > prev) { added += n - prev; countedMap[i] = n; }
+                }
+                if (added > 0) {
+                    count += added;
+                    updateChallengeProgress();
+                    playBeepSound();
+                    triggerCounterAnimation();
+                    lastWordDisplay.style.color = '#ffea00';
+                    lastWordDisplay.textContent = `⚡検知 +${added}: "${shown}"`;
+                } else {
+                    lastWordDisplay.style.color = '';
+                    lastWordDisplay.textContent = `認識中: "${shown}"`;
                 }
             };
 
             recognition.onend = () => {
+                running = false;
                 countedMap = {};
                 if (isListening) {
-                    try {
-                        recognition.start();
-                    } catch (e) {}
+                    scheduleRestart(errorStreak > 0 ? Math.min(200 * 2 ** errorStreak, 3000) : 0);
                 } else {
                     updateUI(false);
                 }
             };
 
             recognition.onerror = (event) => {
-                if (event.error === 'no-speech') return;
+                if (event.error === 'no-speech' || event.error === 'aborted') return;
                 console.error("音声認識エラー:", event.error);
-                if (event.error === 'not-allowed') {
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
                     alert("マイク許可が必要です。");
                     stopListening();
+                } else if (event.error === 'language-not-supported' && recognition.processLocally) {
+                    recognition.processLocally = false; // 端末内が使えなければクラウドへ
+                    engineLabel = 'クラウド認識';
+                } else {
+                    errorStreak = Math.min(errorStreak + 1, 5);
                 }
             };
         }
 
-        function toggleListening() {
+        function safeStart() {
+            if (!recognition || running) return;
+            try { recognition.start(); } catch (e) { /* 既に起動中など */ }
+        }
+
+        function scheduleRestart(delay) {
+            clearTimeout(restartTimer);
+            restartTimer = setTimeout(() => { if (isListening) safeStart(); }, delay);
+        }
+
+        // 見張り番: 認識が止まったまま復帰していなければ再起動
+        setInterval(() => {
+            if (isListening && !running && recognition) scheduleRestart(0);
+        }, 3000);
+
+        ready = setupRecognition();
+
+        async function toggleListening() {
             initAudio();
+            await ready;
             if (!recognition) return;
-            if (isListening) {
-                stopListening();
-            } else {
-                startListening();
-            }
+            isListening ? stopListening() : startListening();
         }
 
         function startListening() {
             isListening = true;
-            countedMap = {};
-            try {
-                recognition.start();
-            } catch(e) {}
+            errorStreak = 0;
+            safeStart();
             updateUI(true);
         }
 
         function stopListening() {
             isListening = false;
-            recognition.stop();
+            clearTimeout(restartTimer);
+            try { recognition.stop(); } catch (e) {}
             updateUI(false);
         }
 
         function updateUI(listening) {
+            lastWordDisplay.style.color = '';
             if (listening) {
                 toggleBtn.textContent = "マイク停止 (STOP)";
                 toggleBtn.classList.add('stop');
                 statusDot.classList.add('active');
-                lastWordDisplay.textContent = "自動検知システム稼働中...";
+                lastWordDisplay.textContent = `自動検知システム稼働中 [${engineLabel}]`;
             } else {
                 toggleBtn.textContent = "マイク開始 (START)";
                 toggleBtn.classList.remove('stop');
