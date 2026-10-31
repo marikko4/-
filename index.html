@@ -349,6 +349,40 @@
             cursor: pointer;
             font-size: 0.75rem;
         }
+        /* ===== ボーナスモード ===== */
+        .mode-badge {
+            position: absolute;
+            top: -14px;
+            right: 20px;
+            display: none;
+            font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 900;
+            padding: 3px 14px;
+            border-radius: 12px;
+            color: #000;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .banner-card.mode-x2 { animation: none; border-color: #ffea00; box-shadow: 0 0 35px rgba(255, 234, 0, 0.8), inset 0 0 20px rgba(255, 140, 0, 0.5); }
+        .banner-card.mode-x3 { animation: none; border-color: #ff007f; box-shadow: 0 0 45px rgba(255, 0, 127, 0.95), inset 0 0 25px rgba(255, 234, 0, 0.6); }
+        .banner-card.mode-x2 .mode-badge { display: block; background: linear-gradient(135deg, #ffea00, #ff9500); box-shadow: 0 0 15px rgba(255, 234, 0, 0.9); animation: badge-pulse 0.5s infinite alternate; }
+        .banner-card.mode-x3 .mode-badge { display: block; background: linear-gradient(135deg, #ff007f, #ffea00, #00f0ff); background-size: 200% auto; box-shadow: 0 0 20px rgba(255, 0, 127, 1); animation: badge-pulse 0.3s infinite alternate, text-shine 1s linear infinite; }
+        .banner-card.mode-x2 .counter { color: #ffea00; text-shadow: 0 0 15px #ffea00, 0 0 30px #ff9500; }
+        .banner-card.mode-x3 .counter { color: #ff5fa8; text-shadow: 0 0 20px #ff007f, 0 0 40px #ffea00; }
+        .btn-mode {
+            border-radius: 12px;
+            padding: 0.5rem 0.8rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: bold;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .btn-x2 { background: rgba(255, 234, 0, 0.15); border: 1px solid #ffea00; color: #ffea00; }
+        .btn-x3 { background: rgba(255, 0, 127, 0.15); border: 1px solid #ff007f; color: #ff7ab8; }
+        .btn-mode:hover { filter: brightness(1.4); }
+        .btn-mode.active { background: #fff; color: #000; }
     </style>
 </head>
 <body>
@@ -356,13 +390,14 @@
     <!-- 1. OBS配信画面用バナー -->
     <div class="banner-card">
         <div class="id-badge">ID: dswiikou</div>
+        <div class="mode-badge" id="modeBadge"></div>
 
         <div class="left-block">
             <h1 class="challenge-title">🔥 <span>イキスギ 10万回耐久</span> 🔥</h1>
             <div class="progress-box">
                 <div class="progress-info">
                     <span>達成度</span>
-                    <span id="challengePercent">57.96%</span>
+                    <span id="challengePercent">60.02%</span>
                 </div>
                 <div class="progress-bar-bg">
                     <div class="progress-bar-fill" id="challengeProgressBar"></div>
@@ -371,7 +406,7 @@
         </div>
 
         <div class="right-block">
-            <div class="counter" id="countDisplay">57958</div>
+            <div class="counter" id="countDisplay">60015</div>
             <div class="goal-subtext">GOAL: <span>100,000</span></div>
         </div>
     </div>
@@ -388,6 +423,8 @@
 
         <div class="btn-group">
             <button class="btn-toggle" id="toggleBtn">マイク開始 (START)</button>
+            <button class="btn-mode btn-x2" id="modeX2Btn">🔥2倍 3分</button>
+            <button class="btn-mode btn-x3" id="modeX3Btn">💥3倍 3分</button>
             <button class="btn-save" id="saveBtn">記録保存</button>
             <button class="btn-reset" id="recListBtn">記録一覧</button>
             <button class="btn-reset" id="resetBtn">リセット</button>
@@ -422,10 +459,10 @@
         const challengePercent = document.getElementById('challengePercent');
 
         // デフォルト初期値
-        const DEFAULT_COUNT = 57958;
+        const DEFAULT_COUNT = 60015;
         const GOAL_COUNT = 100000;
 
-        let count = parseInt(localStorage.getItem('ikisugiFastCount_v3'));
+        let count = parseInt(localStorage.getItem('ikisugiFastCount_v4'));
         if (isNaN(count)) {
             count = DEFAULT_COUNT;
         }
@@ -435,7 +472,7 @@
             const percent = ((count / GOAL_COUNT) * 100).toFixed(2);
             challengePercent.textContent = percent + '%';
             challengeProgressBar.style.width = Math.min(percent, 100) + '%';
-            localStorage.setItem('ikisugiFastCount_v3', count);
+            localStorage.setItem('ikisugiFastCount_v4', count);
         }
 
         updateChallengeProgress();
@@ -576,12 +613,14 @@
                     if (n > prev) { added += n - prev; countedMap[i] = n; }
                 }
                 if (added > 0) {
-                    count += added;
+                    const mult = currentMultiplier();
+                    const gain = added * mult;
+                    count += gain;
                     updateChallengeProgress();
                     playBeepSound();
                     triggerCounterAnimation();
                     lastWordDisplay.style.color = '#ffea00';
-                    lastWordDisplay.textContent = `⚡検知 +${added}: "${shown}"`;
+                    lastWordDisplay.textContent = `⚡検知 +${gain}${mult > 1 ? ` (×${mult})` : ''}: "${shown}"`;
                 } else {
                     lastWordDisplay.style.color = '';
                     lastWordDisplay.textContent = `認識中: "${shown}"`;
@@ -764,6 +803,78 @@
             persistRecords();
             renderRecords();
         });
+
+        // ===== ボーナスモード (2倍 / 3倍・各3分) =====
+        const MODE_DURATION_MS = 3 * 60 * 1000;
+        const MODE_KEY = 'ikisugiMode_v1';
+        const MODE_INFO = {
+            2: { cls: 'mode-x2', label: '🔥 2倍 イキスギモード' },
+            3: { cls: 'mode-x3', label: '💥 3倍 スーパーイキスギモード' }
+        };
+        const bannerCard = document.querySelector('.banner-card');
+        const modeBadge = document.getElementById('modeBadge');
+        const modeBtns = { 2: document.getElementById('modeX2Btn'), 3: document.getElementById('modeX3Btn') };
+        let modeMult = 1;
+        let modeEnd = 0;
+
+        function currentMultiplier() {
+            if (modeMult > 1 && Date.now() >= modeEnd) endMode(true);
+            return modeMult;
+        }
+
+        function renderMode() {
+            bannerCard.classList.remove('mode-x2', 'mode-x3');
+            Object.values(modeBtns).forEach(b => b.classList.remove('active'));
+            if (modeMult > 1) {
+                const left = Math.max(0, modeEnd - Date.now());
+                const sec = Math.ceil(left / 1000);
+                bannerCard.classList.add(MODE_INFO[modeMult].cls);
+                modeBtns[modeMult].classList.add('active');
+                modeBadge.textContent = `${MODE_INFO[modeMult].label} ${Math.floor(sec / 60)}:${pad2(sec % 60)}`;
+            }
+        }
+
+        function startMode(mult) {
+            if (modeMult === mult && Date.now() < modeEnd) {
+                // 同じモードをもう一度押したら解除
+                endMode(false);
+                return;
+            }
+            modeMult = mult;
+            modeEnd = Date.now() + MODE_DURATION_MS;
+            try { localStorage.setItem(MODE_KEY, JSON.stringify({ mult: modeMult, end: modeEnd })); } catch (e) {}
+            initAudio();
+            playBeepSound();
+            renderMode();
+            lastWordDisplay.style.color = '#ffea00';
+            lastWordDisplay.textContent = `${MODE_INFO[mult].label} 開始！3分間 ×${mult}`;
+        }
+
+        function endMode(expired) {
+            modeMult = 1;
+            modeEnd = 0;
+            try { localStorage.removeItem(MODE_KEY); } catch (e) {}
+            renderMode();
+            lastWordDisplay.style.color = '';
+            lastWordDisplay.textContent = expired ? 'ボーナスモード終了（通常に戻りました）' : 'ボーナスモードを解除しました';
+        }
+
+        // リロードしても残り時間を引き継ぐ
+        try {
+            const saved = JSON.parse(localStorage.getItem(MODE_KEY));
+            if (saved && MODE_INFO[saved.mult] && saved.end > Date.now()) {
+                modeMult = saved.mult;
+                modeEnd = saved.end;
+            }
+        } catch (e) {}
+        renderMode();
+        setInterval(() => {
+            if (modeMult > 1 && Date.now() >= modeEnd) endMode(true);
+            else if (modeMult > 1) renderMode();
+        }, 250);
+
+        modeBtns[2].addEventListener('click', () => startMode(2));
+        modeBtns[3].addEventListener('click', () => startMode(3));
 
         toggleBtn.addEventListener('click', toggleListening);
     </script>
