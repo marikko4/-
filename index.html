@@ -381,6 +381,9 @@
         }
         .btn-x2 { background: rgba(255, 234, 0, 0.15); border: 1px solid #ffea00; color: #ffea00; }
         .btn-x3 { background: rgba(255, 0, 127, 0.15); border: 1px solid #ff007f; color: #ff7ab8; }
+        .mic-meter { width: 100%; max-width: 300px; height: 5px; margin-top: 5px; background: #111827; border-radius: 3px; overflow: hidden; }
+        .mic-level { height: 100%; width: 0%; background: linear-gradient(90deg, #00ff66, #ffea00, #ff0055); transition: width 0.08s linear; }
+        .btn-off { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.3); color: #cbd5e0; }
         .btn-mode:hover { filter: brightness(1.4); }
         .btn-mode.active { background: #fff; color: #000; }
     </style>
@@ -397,7 +400,7 @@
             <div class="progress-box">
                 <div class="progress-info">
                     <span>達成度</span>
-                    <span id="challengePercent">64.36%</span>
+                    <span id="challengePercent">65.06%</span>
                 </div>
                 <div class="progress-bar-bg">
                     <div class="progress-bar-fill" id="challengeProgressBar"></div>
@@ -406,7 +409,7 @@
         </div>
 
         <div class="right-block">
-            <div class="counter" id="countDisplay">64359</div>
+            <div class="counter" id="countDisplay">65055</div>
             <div class="goal-subtext">GOAL: <span>100,000</span></div>
         </div>
     </div>
@@ -419,12 +422,14 @@
                 <span>SYSTEM CONTROL</span>
             </div>
             <div class="status-bar" id="lastWord">マイク停止中...</div>
+            <div class="mic-meter" title="マイク入力レベル"><div class="mic-level" id="micLevel"></div></div>
         </div>
 
         <div class="btn-group">
             <button class="btn-toggle" id="toggleBtn">マイク開始 (START)</button>
             <button class="btn-mode btn-x2" id="modeX2Btn">🔥2倍 3分</button>
             <button class="btn-mode btn-x3" id="modeX3Btn">💥3倍 3分</button>
+            <button class="btn-mode btn-off" id="modeOffBtn">解除</button>
             <button class="btn-save" id="saveBtn">記録保存</button>
             <button class="btn-reset" id="recListBtn">記録一覧</button>
             <button class="btn-reset" id="resetBtn">リセット</button>
@@ -461,10 +466,10 @@
         const challengePercent = document.getElementById('challengePercent');
 
         // デフォルト初期値
-        const DEFAULT_COUNT = 64359;
+        const DEFAULT_COUNT = 65055;
         const GOAL_COUNT = 100000;
 
-        let count = parseInt(localStorage.getItem('ikisugiFastCount_v5'));
+        let count = parseInt(localStorage.getItem('ikisugiFastCount_v6'));
         if (isNaN(count)) {
             count = DEFAULT_COUNT;
         }
@@ -474,7 +479,7 @@
             const percent = ((count / GOAL_COUNT) * 100).toFixed(2);
             challengePercent.textContent = percent + '%';
             challengeProgressBar.style.width = Math.min(percent, 100) + '%';
-            localStorage.setItem('ikisugiFastCount_v5', count);
+            localStorage.setItem('ikisugiFastCount_v6', count);
         }
 
         updateChallengeProgress();
@@ -555,6 +560,8 @@
         const ALL_RE = new RegExp(STRICT_SRC + '|' + LOOSE_SRC, 'g');
         function countIn(text, re) { return (normalize(text).match(re) || []).length; }
         // 1つの認識結果について、全候補のうち最大のヒット数を返す（足し算はしない＝二重カウント防止）
+        function topCount(result) { return countIn(result[0].transcript, ALL_RE); }
+        // 確定した結果だけ、全候補のうち最大のヒット数を見る（足し算はしない）
         function bestCount(result) {
             let best = 0;
             for (let a = 0; a < result.length; a++) {
@@ -570,6 +577,7 @@
         let running = false;
         let restartTimer = null;
         let errorStreak = 0;
+        let sessionId = 0, lastStartAt = 0, lastResultAt = 0, lastSpeechAt = 0, lastSoundAt = 0;
         let engineLabel = 'クラウド認識';
 
         async function setupRecognition() {
@@ -603,15 +611,27 @@
 
             let countedMap = {};
 
-            recognition.onstart = () => { running = true; };
+            recognition.onstart = () => {
+                running = true;
+                sessionId++;
+                const now = Date.now();
+                lastStartAt = now; lastResultAt = now; lastSpeechAt = 0;
+            };
+            recognition.onspeechstart = () => { lastSpeechAt = Date.now(); };
+            recognition.onsoundstart = () => { lastSoundAt = Date.now(); };
+            recognition.onaudiostart = () => { lastSoundAt = Date.now(); };
 
             recognition.onresult = (event) => {
                 errorStreak = 0;
-                let added = 0, shown = '';
+                lastResultAt = Date.now();
+                let added = 0, shown = '', hasMatch = false;
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const n = bestCount(event.results[i]);
+                    const res = event.results[i];
+                    // 暫定結果は第1候補だけで数える（誤候補で数が膨らみ、以降の本物が埋もれるのを防ぐ）
+                    const n = res.isFinal ? bestCount(res) : topCount(res);
                     const prev = countedMap[i] || 0;
-                    shown = event.results[i][0].transcript;
+                    shown = res[0].transcript;
+                    if (n > 0) hasMatch = true;
                     if (n > prev) { added += n - prev; countedMap[i] = n; }
                 }
                 if (added > 0) {
@@ -624,8 +644,8 @@
                     lastWordDisplay.style.color = '#ffea00';
                     lastWordDisplay.textContent = `⚡検知 +${gain}${mult > 1 ? ` (×${mult})` : ''}: "${shown}"`;
                 } else {
-                    lastWordDisplay.style.color = '';
-                    lastWordDisplay.textContent = `認識中: "${shown}"`;
+                    lastWordDisplay.style.color = hasMatch ? '#9dffc4' : '';
+                    lastWordDisplay.textContent = `${hasMatch ? '✔カウント済み' : '認識中'}: "${shown}"`;
                 }
             };
 
@@ -664,10 +684,28 @@
             restartTimer = setTimeout(() => { if (isListening) safeStart(); }, delay);
         }
 
-        // 見張り番: 認識が止まったまま復帰していなければ再起動
+        // 認識を強制的に作り直す（止まったまま・結果が来ない状態からの復帰）
+        function forceRestart(reason) {
+            if (!isListening || !recognition) return;
+            console.warn('音声認識を再起動:', reason);
+            const sid = sessionId;
+            try { recognition.abort(); } catch (e) {}
+            // onend が来なかった場合の保険
+            setTimeout(() => {
+                if (isListening && sid === sessionId) { running = false; scheduleRestart(0); }
+            }, 1500);
+        }
+
+        // 見張り番（1秒ごと）
         setInterval(() => {
-            if (isListening && !running && recognition) scheduleRestart(0);
-        }, 3000);
+            if (!isListening || !recognition) return;
+            const now = Date.now();
+            if (!running) { scheduleRestart(0); return; }
+            // 声を検知したのに6秒たっても文字が出ない → 固まっているので再起動
+            if (lastSpeechAt > lastResultAt && now - lastSpeechAt > 6000) { forceRestart('声検知後に結果なし'); return; }
+            // 長く無音が続いたら、静かなうちに作り直して固まりを予防
+            if (now - Math.max(lastStartAt, lastResultAt, lastSpeechAt) > 40000) forceRestart('定期リフレッシュ');
+        }, 1000);
 
         ready = setupRecognition();
 
@@ -678,15 +716,63 @@
             isListening ? stopListening() : startListening();
         }
 
+
+        // ===== マイク入力レベルメーター（マイクが生きているかの目安） =====
+        const micLevelEl = document.getElementById('micLevel');
+        let meterStream = null, meterCtx = null, meterRaf = 0, meterQuietSince = 0;
+
+        async function startMeter() {
+            if (meterStream || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+            try {
+                meterStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                if (!isListening) { stopMeter(); return; }
+                meterCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const src = meterCtx.createMediaStreamSource(meterStream);
+                const an = meterCtx.createAnalyser();
+                an.fftSize = 512;
+                src.connect(an);
+                const buf = new Uint8Array(an.fftSize);
+                meterQuietSince = Date.now();
+                const tick = () => {
+                    an.getByteTimeDomainData(buf);
+                    let peak = 0;
+                    for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i] - 128));
+                    const lv = Math.min(1, peak / 64);
+                    micLevelEl.style.width = (lv * 100) + '%';
+                    const now = Date.now();
+                    if (lv > 0.02) meterQuietSince = now;
+                    // 10秒以上まったく入力がなければ警告（マイク選択ミス・ミュート等）
+                    const dead = now - meterQuietSince > 10000;
+                    const track = meterStream && meterStream.getAudioTracks()[0];
+                    if (isListening && (dead || (track && track.readyState === 'ended'))) {
+                        if (!/🎤/.test(lastWordDisplay.textContent)) {
+                            lastWordDisplay.style.color = '#ff6b8a';
+                            lastWordDisplay.textContent = '🎤 マイク入力が検知できません（ミュート/入力デバイスを確認）';
+                        }
+                    }
+                    meterRaf = requestAnimationFrame(tick);
+                };
+                tick();
+            } catch (e) { console.warn('メーター開始失敗(音声認識には影響なし):', e); stopMeter(); }
+        }
+        function stopMeter() {
+            cancelAnimationFrame(meterRaf);
+            if (meterStream) { meterStream.getTracks().forEach(t => t.stop()); meterStream = null; }
+            if (meterCtx) { try { meterCtx.close(); } catch (e) {} meterCtx = null; }
+            micLevelEl.style.width = '0%';
+        }
+
         function startListening() {
             isListening = true;
             errorStreak = 0;
             safeStart();
+            startMeter();
             updateUI(true);
         }
 
         function stopListening() {
             isListening = false;
+            stopMeter();
             clearTimeout(restartTimer);
             try { recognition.stop(); } catch (e) {}
             updateUI(false);
@@ -845,24 +931,34 @@
                 const sec = Math.ceil(left / 1000);
                 bannerCard.classList.add(MODE_INFO[modeMult].cls);
                 modeBtns[modeMult].classList.add('active');
-                modeBadge.textContent = `${MODE_INFO[modeMult].label} ${Math.floor(sec / 60)}:${pad2(sec % 60)}`;
+                modeBadge.textContent = `${MODE_INFO[modeMult].label} ${fmtLeft(left)}`;
             }
         }
 
         function startMode(mult) {
+            initAudio();
             if (modeMult === mult && Date.now() < modeEnd) {
-                // 同じモードをもう一度押したら解除
-                endMode(false);
+                // 同じモードをもう一度押したら3分延長（重ねがけ）
+                modeEnd += MODE_DURATION_MS;
+                try { localStorage.setItem(MODE_KEY, JSON.stringify({ mult: modeMult, end: modeEnd })); } catch (e) {}
+                playBeepSound();
+                renderMode();
+                lastWordDisplay.style.color = '#ffea00';
+                lastWordDisplay.textContent = `${MODE_INFO[mult].label} +3分延長！ 残り ${fmtLeft(modeEnd - Date.now())}`;
                 return;
             }
             modeMult = mult;
             modeEnd = Date.now() + MODE_DURATION_MS;
             try { localStorage.setItem(MODE_KEY, JSON.stringify({ mult: modeMult, end: modeEnd })); } catch (e) {}
-            initAudio();
             playBeepSound();
             renderMode();
             lastWordDisplay.style.color = '#ffea00';
             lastWordDisplay.textContent = `${MODE_INFO[mult].label} 開始！3分間 ×${mult}`;
+        }
+
+        function fmtLeft(ms) {
+            const sec = Math.max(0, Math.ceil(ms / 1000));
+            return `${Math.floor(sec / 60)}:${pad2(sec % 60)}`;
         }
 
         function endMode(expired) {
@@ -890,6 +986,7 @@
 
         modeBtns[2].addEventListener('click', () => startMode(2));
         modeBtns[3].addEventListener('click', () => startMode(3));
+        document.getElementById('modeOffBtn').addEventListener('click', () => { if (modeMult > 1) endMode(false); });
 
         toggleBtn.addEventListener('click', toggleListening);
     </script>
